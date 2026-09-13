@@ -92,10 +92,23 @@ VITE_FIREBASE_FIRESTORE_API=https://firestore.googleapis.com
 
 ## Scripts
 
+1. to run project
 ```bash
 npm run dev
-npm run build
+```
+
+2. to check errors
+```bash
 npm run typecheck
+```
+
+3. to build this project which make it running better
+```bash
+npm run build
+```
+
+4. to check production like view
+```bash
 npm run preview
 ```
 

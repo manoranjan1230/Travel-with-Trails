@@ -3,7 +3,9 @@ import { Link, useLocation } from 'wouter';
 import { Mountain } from 'lucide-react';
 import { alpineHero } from '@/data/trips';
 import { PageShell } from '@/components/common';
-import { hashPassword, isStrongPassword, isValidMobileNumber, readUsers } from '@/services/auth';
+import { hashPassword, isStrongPassword, isValidMobileNumber, readUsers, signUpWithFirebase, loginWithFirebase, findUserByEmail } from '@/services/auth';
+import { signInWithGoogle as googleAuth } from '@/services/auth';
+import { isFirebaseConfigured } from '@/services/firebase';
 
 export function AuthPage({ mode = 'login' }: { mode?: 'login' | 'signup' }) {
   const [, setLocation] = useLocation();
@@ -22,42 +24,97 @@ export function AuthPage({ mode = 'login' }: { mode?: 'login' | 'signup' }) {
     setError('');
     const cleanEmail = email.trim().toLowerCase();
     const cleanMobile = mobile.replace(/\D/g, '').trim();
-    if (!cleanEmail || !password || (!isLogin && (!name.trim() || !cleanMobile))) { setError('Please fill in all required fields.'); return; }
-    if (!isLogin && !isValidMobileNumber(cleanMobile)) { setError('Mobile number must be exactly 10 digits and start with 6.'); return; }
-    if (!isLogin && password !== confirmPassword) { setError('Passwords do not match.'); return; }
+
+    if (!cleanEmail || !password || (!isLogin && (!name.trim() || !cleanMobile))) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    if (!isLogin && !isValidMobileNumber(cleanMobile)) {
+      setError('Mobile number must be exactly 10 digits and start with 6.');
+      return;
+    }
+
+    if (!isLogin && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     if (!isLogin && !isStrongPassword(password)) {
       setError('Password must include at least 8 characters, one uppercase letter, one lowercase letter, one number, and one special character.');
       return;
     }
+
     setLoading(true);
+
     try {
+      if (isFirebaseConfigured) {
+        if (isLogin) {
+          await loginWithFirebase(cleanEmail, password);
+        } else {
+          await signUpWithFirebase({ name: name.trim(), email: cleanEmail, mobile: cleanMobile, password, emergencyNumber: '', profileImageUrl: '', address: '' });
+        }
+        setLocation('/');
+        return;
+      }
+
       const users = readUsers();
       const existing = users.find((item) => item.email === cleanEmail);
       const passwordHash = await hashPassword(password);
+
       if (isLogin) {
-        if (!existing) { setError('You are not registered. Please sign up first.'); return; }
-        if (existing.passwordHash !== passwordHash) { setError('Incorrect password.'); return; }
+        if (!existing) {
+          setError('You are not registered. Please sign up first.');
+          return;
+        }
+
+        if (existing.passwordHash !== passwordHash) {
+          setError('Incorrect password.');
+          return;
+        }
+
         localStorage.setItem('travel-with-trails-current-user', JSON.stringify({ name: existing.name, email: existing.email, mobile: existing.mobile }));
       } else {
-        if (existing) { setError('An account with this email already exists. Please log in.'); return; }
+        if (existing) {
+          setError('An account with this email already exists. Please log in.');
+          return;
+        }
+
         const user = { id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, name: name.trim(), email: cleanEmail, mobile: cleanMobile, passwordHash };
         localStorage.setItem('travel-with-trails-users-v1', JSON.stringify([...users, user]));
         localStorage.setItem('travel-with-trails-current-user', JSON.stringify({ name: user.name, email: user.email, mobile: user.mobile }));
       }
+
       window.dispatchEvent(new Event('travel-with-trails-auth-changed'));
       setLocation('/');
-    } finally { setLoading(false); }
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Authentication failed.';
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const signInWithGoogle = () => {
+  const signInWithGoogle = async () => {
     setError('');
     setGoogleLoading(true);
-    localStorage.setItem('travel-with-trails-current-user', JSON.stringify({ name: 'Google Traveller', email: 'traveller@google.com' }));
-    window.dispatchEvent(new Event('travel-with-trails-auth-changed'));
-    window.setTimeout(() => {
-      setGoogleLoading(false);
+
+    try {
+      if (isFirebaseConfigured) {
+        await googleAuth();
+        setLocation('/');
+        return;
+      }
+
+      localStorage.setItem('travel-with-trails-current-user', JSON.stringify({ name: 'Google Traveller', email: 'traveller@google.com' }));
+      window.dispatchEvent(new Event('travel-with-trails-auth-changed'));
       setLocation('/');
-    }, 160);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Google sign-in failed.';
+      setError(message);
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return <PageShell><main className="flex min-h-[calc(100dvh-72px)] items-center justify-center px-5 py-10 lg:py-14"><div className="grid w-full max-w-[960px] overflow-hidden rounded-[30px] border border-border bg-card shadow-xl lg:grid-cols-[.9fr_1.1fr]">
