@@ -1,0 +1,14 @@
+import { useState } from 'react';
+import { Link, useLocation, useParams } from 'wouter';
+import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock3, Headphones, Heart, Leaf, Pencil, Search, Send, Share2, ShieldCheck, Star, Users, X, CalendarDays, Sparkles, SlidersHorizontal, Mountain, Ticket } from 'lucide-react';
+import { trips, alpineHero, spitiValley, kedarnath, valleyFlowers } from '@/data/trips';
+import type { Trip, Traveller, Booking } from '@/types/models';
+import { PageShell, SearchBox, SectionTitle, TripCard, TrustRow, Filters, Metric, ItineraryPreview, InfoList, BookingStepper, Field, EmptyState } from '@/components/common';
+import { readTravellerStorage, TRAVELLERS_KEY } from '@/services/storage';
+import { BookingRow } from './BookingRow';
+
+export function BookingsPage({ bookings, cancelledBookings }: { bookings: Booking[]; cancelledBookings: Booking[] }) {
+  const [filter, setFilter] = useState('Upcoming');
+  const list = filter === 'Upcoming' ? bookings : filter === 'Cancelled' ? cancelledBookings : [];
+  return <PageShell><main className="mx-auto max-w-[1240px] px-5 py-8 lg:px-8 lg:py-12"><div className="grid gap-8 lg:grid-cols-[1fr_330px]"><section><p className="text-[10px] font-bold uppercase tracking-[.23em] text-primary/70">Your trail log</p><h1 className="mt-2 font-display text-[40px] tracking-[-.04em] md:text-[54px]">My bookings</h1><div className="mt-7 inline-flex rounded-full border border-border bg-card p-1">{['Upcoming', 'Past', 'Cancelled'].map((item) => <button key={item} onClick={() => setFilter(item)} type="button" className={`rounded-full px-5 py-2 text-[10px] font-semibold ${filter === item ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`} data-testid={`button-booking-filter-${item.toLowerCase()}`}>{item}</button>)}</div>{list.length ? <div className="mt-5 space-y-3">{list.map((booking) => <BookingRow key={booking.id} booking={booking} status={filter === 'Cancelled' ? 'Cancelled' : (booking.status || 'Confirmed')} />)}</div> : <EmptyState title={`No ${filter.toLowerCase()} journeys yet`} text="Your next good story is probably closer than you think." action={<Link href="/trips" className="rounded-full bg-primary px-5 py-2.5 text-[11px] font-bold text-primary-foreground" data-testid="link-book-first-trip">Browse trips</Link>} />}</section><aside className="relative hidden overflow-hidden rounded-2xl bg-[#dfe8d9] p-7 lg:block"><div className="relative z-10"><Sparkles size={20} className="text-primary" /><p className="mt-8 max-w-[210px] font-display text-[30px] leading-[1.03]">Every journey adds a new story.</p><p className="mt-4 max-w-[210px] text-[11px] leading-relaxed text-muted-foreground">Keep going. There are plenty of beautiful places left to meet.</p></div><img src={alpineHero} alt="" className="absolute bottom-0 left-0 h-[45%] w-full object-cover opacity-70 mix-blend-multiply" /></aside></div></main></PageShell>;
+}
