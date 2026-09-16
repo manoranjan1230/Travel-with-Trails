@@ -23,6 +23,7 @@ firebase-debug.log*
 service-account.json
 firebase-service-account*.json
 .google-service-account*.json
+!firebase.rules
 
 
 #misc
