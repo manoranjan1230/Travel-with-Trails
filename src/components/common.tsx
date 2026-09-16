@@ -45,8 +45,9 @@ export function Header() {
   const active = (href: string) => location === href || (href === '/trips' && location.startsWith('/trips')) || (href === '/bookings' && location.startsWith('/bookings'));
   return (
     <>
-      <header className={`fixed inset-x-0 top-0 z-40 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6 ${ isHome ? 'text-white' : 'text-foreground' }`}
->
+  <header className={`relative w-full z-40 px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6 ${ isHome ? 'text-white' : 'text-foreground' }`}>
+    
+
         <div className={`mx-auto flex h-[64px] max-w-[1240px] items-center justify-between gap-4 rounded-[22px] border px-3 shadow-lg backdrop-blur-xl sm:h-[70px] sm:px-4 ${isHome ? 'border-white/20 bg-black/15 shadow-black/20' : 'border-border/70 bg-card/90 shadow-black/5'}`}>
           <Link href="/" className="group flex min-w-0 items-center gap-2.5" data-testid="link-brand">
             <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl border shadow-sm transition-transform group-hover:scale-105 sm:size-10 ${isHome ? 'border-white/25 bg-white/10 text-white' : 'border-primary/10 bg-primary text-primary-foreground'}`}>
