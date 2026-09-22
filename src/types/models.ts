@@ -57,6 +57,7 @@ export type Trip = {
   image?: string;
   price?: number | string;
   days?: number;
+  nights?: number;
   difficultyLevel?: string;
   difficulty?: string;
   rating?: number | string;
@@ -81,10 +82,13 @@ export type Booking = {
   bookingStatus?: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   tripStartDate?: string;
   tripEndDate?: string;
-  travellers?: TravellerPerson[];
+  travellers?: Traveller[] | TravellerPerson[];
   payment?: TripBookingPayment;
   userId?: string;
   tripId?: string;
+  totalAmount?: number;
+  createdAt?: string;
+  updatedAt?: string;
   timestamp: string;
 };
 

@@ -39,14 +39,12 @@ export function Home({ wishlist, onWishlist }: { wishlist: string[]; onWishlist:
             55% { transform: translate3d(55vw, 35vh, 0) rotate(2deg) scale(.84) scaleX(-1); }
             100% { transform: translate3d(-16vw, 46vh, 0) rotate(-2deg) scale(.98) scaleX(-1); opacity: 0; }
           }
-          @keyframes heroParagliderFlight {
-            0% { transform: translate3d(-18vw, 8vh, 0) rotate(-5deg); opacity: 0; }
+          @keyframes heroParagliderLeftToRight {
+            0% { transform: translate3d(-22vw, 8vh, 0) scaleX(-1); opacity: 0; }
             7% { opacity: 1; }
-            24% { transform: translate3d(16vw, 2vh, 0) rotate(3deg); }
-            48% { transform: translate3d(52vw, 12vh, 0) rotate(-4deg); }
-            72% { transform: translate3d(82vw, 0vh, 0) rotate(4deg); }
+            50% { transform: translate3d(50vw, 16vh, 0) scaleX(-1); opacity: 1; }
             93% { opacity: 1; }
-            100% { transform: translate3d(118vw, 10vh, 0) rotate(-3deg); opacity: 0; }
+            100% { transform: translate3d(122vw, 30vh, 0) scaleX(-1); opacity: 0; }
           }
           @keyframes heroDuskSweep {
             0%, 25% { opacity: 0; transform: translateX(110%); }
@@ -85,7 +83,9 @@ export function Home({ wishlist, onWishlist }: { wishlist: string[]; onWishlist:
           .hero-bird-two { top: 25%; left: 0; background-position: -185px -42px; animation: heroBirdTwo 24s linear 3s infinite; }
           .hero-bird-three { top: 43%; left: 0; background-position: -335px -48px; animation: heroBirdThree 22s linear 7s infinite; }
           .hero-bird-four { top: 54%; left: 0; background-position: -425px -55px; animation: heroBirdFour 26s linear 1s infinite; }
-          .hero-paraglider { position: absolute; z-index: 6; left: 0; top: 17%; width: clamp(115px, 13vw, 205px); height: auto; pointer-events: none; transform-origin: 50% 55%; animation: heroParagliderFlight 22s ease-in-out infinite; filter: drop-shadow(0 7px 7px rgba(0,0,0,.28)); }
+          .hero-paraglider { position: absolute; z-index: 6; left: 0; top: 0; width: clamp(115px, 13vw, 205px); height: auto; pointer-events: none; transform-origin: 50% 55%; filter: drop-shadow(0 7px 7px rgba(0,0,0,.28)); }
+          .hero-paraglider-one { animation: heroParagliderLeftToRight 22s ease-in-out infinite; }
+          .hero-paraglider-two { animation: heroParagliderTopLeftToBottomRight 22s ease-in-out 27s infinite; }
           .hero-dusk-sweep { position: absolute; inset: 0; z-index: 3; pointer-events: none; background: linear-gradient(90deg, transparent 0%, rgba(8,22,47,.05) 34%, rgba(7,19,45,.28) 70%, rgba(3,10,27,.5) 100%); animation: heroDuskSweep 28s ease-in-out infinite; }
           .hero-stars { position: absolute; inset: 0; z-index: 4; pointer-events: none; animation: heroStarsGlow 24s ease-in-out infinite; }
           .hero-star { position: absolute; width: 3px; height: 3px; border-radius: 9999px; background: rgba(255,255,240,.95); box-shadow: 0 0 8px rgba(255,255,240,.75); animation: heroStarTwinkle 3.2s ease-in-out infinite; }
@@ -95,12 +95,12 @@ export function Home({ wishlist, onWishlist }: { wishlist: string[]; onWishlist:
           .hero-shooting-three { top: 11%; right: 38%; animation-delay: 8s; animation-duration: 7.5s; }
           .hero-wind { position: absolute; z-index: 4; left: -20%; width: 46%; height: 24px; border-top: 1px solid rgba(245,249,238,.22); border-radius: 50%; filter: blur(.4px); animation: heroWind 9s linear infinite; pointer-events: none; }
           .hero-wind-one { top: 46%; } .hero-wind-two { top: 54%; transform: scale(.72); animation-delay: -3.5s; } .hero-wind-three { top: 62%; transform: scale(.54); animation-delay: -6.5s; }
-          .hero-content-mask { position: absolute; z-index: 7; left: 50%; top: 31%; width: min(660px, 72vw); height: 34%; transform: translateX(-50%); border-radius: 42px; background: linear-gradient(180deg, rgba(9,19,29,.20), rgba(9,20,30,.42) 48%, rgba(9,19,29,.26)); backdrop-filter: blur(10px) saturate(.78); -webkit-backdrop-filter: blur(8px) saturate(.82); pointer-events: none; }
+          .hero-content-mask { position: absolute; z-index: 7; left: 50%; top: 31%; width: min(660px, 72vw); height: 40%; transform: translateX(-50%); border-radius: 42px; background: linear-gradient(180deg, rgba(9,19,29,.20), rgba(9,20,30,.42) 48%, rgba(9,19,29,.26)); backdrop-filter: blur(10px) saturate(.78); -webkit-backdrop-filter: blur(8px) saturate(.82); pointer-events: none; }
           .hero-scroll { animation: heroScrollBounce 1.8s ease-in-out infinite; }
           @media (prefers-reduced-motion: reduce) { .hero-birds, .hero-paraglider, .hero-dusk-sweep, .hero-stars, .hero-star, .hero-wind, .hero-scroll { animation: none !important; } .hero-stars { opacity: .5; } }
         `}</style>
 
-        <img src="/travel-with-trails-hero.png" alt="Mountain valley at sunset turning into a starry night" className="absolute inset-0 z-0 h-full w-full object-cover object-center" />
+        <img src="/banner.png" alt="Mountain valley at sunset turning into a starry night" className="absolute inset-0 z-0 h-full w-full object-cover object-center" />
         <div className="absolute inset-0 z-[1] bg-black/10" />
         <div className="hero-dusk-sweep" />
         <div className="hero-stars" aria-hidden="true">
@@ -108,12 +108,12 @@ export function Home({ wishlist, onWishlist }: { wishlist: string[]; onWishlist:
           <i className="hero-shooting-star hero-shooting-one" /><i className="hero-shooting-star hero-shooting-two" /><i className="hero-shooting-star hero-shooting-three" />
         </div>
         <span className="hero-bird hero-bird-one" aria-hidden="true" /><span className="hero-bird hero-bird-two" aria-hidden="true" /><span className="hero-bird hero-bird-three" aria-hidden="true" /><span className="hero-bird hero-bird-four" aria-hidden="true" />
-        <img src="/travel-paraglider-real.png" alt="" aria-hidden="true" className="hero-paraglider" />
+        <img src="/travel-paraglider-real.png" alt="" aria-hidden="true" className="hero-paraglider hero-paraglider-one" />
         <span className="hero-wind hero-wind-one" aria-hidden="true" /><span className="hero-wind hero-wind-two" aria-hidden="true" /><span className="hero-wind hero-wind-three" aria-hidden="true" />
         <div className="hero-content-mask" aria-hidden="true" />
         <Header />
 
-        <div className="relative z-20 mx-auto flex min-h-[100svh] w-full max-w-[1240px] flex-col items-center justify-center px-5 pb-20 pt-28 text-center lg:px-8">
+        <div className="relative z-20 mx-auto flex min-h-[100svh] w-full max-w-[1240px] flex-col items-center justify-center px-5 pb-20 pt-28 text-center -translate-y-14 lg:px-8">
           <div className="w-full max-w-[700px]">
             <h1 className="font-display text-[42px] leading-[.96] tracking-[-.045em] text-[#e5ba7e] drop-shadow-[0_3px_12px_rgba(0,0,0,.42)] sm:text-[54px] md:text-[66px]">Nature waits,<br />let’s explore together.</h1>
             <label className="mx-auto mt-7 flex h-[58px] w-full max-w-[590px] cursor-text items-center gap-3 rounded-full border border-white/30 bg-white/95 px-5 text-left shadow-[0_10px_35px_rgba(0,0,0,.22)] backdrop-blur-sm" aria-label="Search destinations, trips or experiences">

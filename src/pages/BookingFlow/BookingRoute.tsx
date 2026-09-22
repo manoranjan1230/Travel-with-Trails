@@ -5,4 +5,37 @@ import { trips } from '@/data/trips';
 import type { Trip, Traveller } from '@/types/models';
 import { PageShell } from '@/components/common';
 import { BookingFlowPage } from './BookingFlowPage';
-export function BookingRoute({ onComplete }: { onComplete: (trip: Trip, travellers: Traveller[]) => void }) { const {id}=useParams<{id:string}>(); const [,setLocation]=useLocation(); const trip=trips.find(x=>x.id===id)||trips[0]; const [success,setSuccess]=useState(false); const [completedTrip,setCompletedTrip]=useState<Trip|null>(null); const complete=(selected:Traveller[])=>{onComplete(trip,selected);setCompletedTrip(trip);setSuccess(true);}; if(success&&completedTrip) return <PageShell><div className="flex min-h-[calc(100dvh-72px)] items-center justify-center p-5"><div className="w-full max-w-[470px] rounded-[28px] border border-border bg-card p-8 text-center shadow-2xl"><div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[#dcebdc] text-primary"><Check size={30}/></div><p className="mt-5 text-[10px] font-bold uppercase tracking-[.2em] text-primary">Booking confirmed</p><h1 className="mt-2 font-display text-[31px]">Congratulations!</h1><p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Your booking for <strong>{completedTrip.title}</strong> has been successfully confirmed.</p><button type="button" onClick={()=>setLocation('/bookings')} className="mt-6 h-11 w-full rounded-full bg-primary text-[11px] font-bold text-primary-foreground">Go to My Bookings</button></div></div></PageShell>; return <BookingFlowPage trip={trip} onComplete={complete}/>; }
+export function BookingRoute({ onComplete }: { onComplete: (trip: Trip, travellers: Traveller[]) => Promise<void> | void }) {
+  const { id } = useParams<{ id: string }>();
+  const [, setLocation] = useLocation();
+  const trip = trips.find((x) => x.id === id) || trips[0];
+  const [success, setSuccess] = useState(false);
+  const [completedTrip, setCompletedTrip] = useState<Trip | null>(null);
+
+  const complete = async (selected: Traveller[]) => {
+    try {
+      await onComplete(trip, selected);
+      setCompletedTrip(trip);
+      setSuccess(true);
+    } catch (error) {
+      console.error('Booking confirmation failed.', error);
+      throw error;
+    }
+  };
+
+  if (success && completedTrip) {
+    return <PageShell>
+      <div className="flex min-h-[calc(100dvh-72px)] items-center justify-center p-5">
+        <div className="w-full max-w-[470px] rounded-[28px] border border-border bg-card p-8 text-center shadow-2xl">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-[#dcebdc] text-primary"><Check size={30} /></div>
+          <p className="mt-5 text-[10px] font-bold uppercase tracking-[.2em] text-primary">Booking confirmed</p>
+          <h1 className="mt-2 font-display text-[31px]">Congratulations!</h1>
+          <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Your booking for <strong>{completedTrip.title}</strong> has been successfully confirmed.</p>
+          <button type="button" onClick={() => setLocation('/bookings')} className="mt-6 h-11 w-full rounded-full bg-primary text-[11px] font-bold text-primary-foreground">Go to My Bookings</button>
+        </div>
+      </div>
+    </PageShell>;
+  }
+
+  return <BookingFlowPage trip={trip} onComplete={complete} />;
+}

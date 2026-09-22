@@ -1,16 +1,361 @@
 import { useState } from 'react';
-import { Link, useLocation, useParams } from 'wouter';
-import { ArrowLeft, ArrowRight, Check, ChevronRight, Clock3, Headphones, Heart, Leaf, Pencil, Search, Send, Share2, ShieldCheck, Star, Users, X, CalendarDays, Sparkles, SlidersHorizontal, Mountain, Ticket } from 'lucide-react';
-import { trips, alpineHero, spitiValley, kedarnath, valleyFlowers } from '@/data/trips';
-import type { Trip, Traveller, Booking } from '@/types/models';
-import { PageShell, SearchBox, SectionTitle, TripCard, TrustRow, Filters, Metric, ItineraryPreview, InfoList, BookingStepper, Field, EmptyState } from '@/components/common';
-import { readTravellerStorage, TRAVELLERS_KEY } from '@/services/storage';
+import { Link, useParams } from 'wouter';
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clock3,
+  Heart,
+  Leaf,
+  Share2,
+  ShieldCheck,
+  Star,
+  Users,
+} from 'lucide-react';
 
-export function DetailPage({ wishlist, onWishlist }: { wishlist: string[]; onWishlist: (id: string) => void }) {
+import {
+  trips,
+  alpineHero,
+  spitiValley,
+  kedarnath,
+  valleyFlowers,
+} from '@/data/trips';
+
+import { PageShell, Metric, ItineraryPreview, InfoList } from '@/components/common';
+
+export function DetailPage({
+  wishlist,
+  onWishlist,
+}: {
+  wishlist: string[];
+  onWishlist: (id: string) => void;
+}) {
   const { id } = useParams<{ id: string }>();
-  const trip = trips.find((item) => item.id === id) || trips[0];
+
+  const trip = trips.find((item) => item.id === id) ?? trips[0];
+
   const [tab, setTab] = useState('Overview');
+
   const saved = wishlist.includes(trip.id);
-  const gallery = [trip.image, alpineHero, spitiValley, valleyFlowers];
-  return <PageShell><main className="mx-auto max-w-[1240px] px-5 py-6 lg:px-8 lg:py-9"><Link href="/trips" className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-primary" data-testid="link-back-trips"><ArrowLeft size={14} /> Back to trips</Link><div className="grid gap-7 lg:grid-cols-[1.25fr_.75fr]"><div><div className="grid h-[360px] grid-cols-4 gap-2 overflow-hidden rounded-2xl md:h-[470px]"><div className="relative col-span-3 overflow-hidden"><img src={gallery[0]} alt={trip.title} className="size-full object-cover" /><div className="absolute inset-x-5 bottom-5 flex items-end justify-between text-[#f8f2e1]"><div><p className="text-[11px] font-semibold uppercase tracking-[.18em]">{trip.location}</p><h1 className="mt-1 font-display text-[37px] leading-none md:text-[53px]">{trip.title}</h1></div><span className="hidden rounded-full bg-[#f8f2e1]/90 px-3 py-2 text-[11px] font-bold text-primary sm:block">{trip.days} days · {trip.nights} nights</span></div></div><div className="grid grid-rows-3 gap-2 overflow-hidden">{gallery.slice(1).map((img, index) => <img key={img} src={img} alt={`${trip.title} gallery ${index + 2}`} className="size-full min-h-0 object-cover" />)}</div></div><div className="mt-3 flex gap-2 overflow-x-auto">{['Overview', 'Itinerary', 'Inclusions', 'Exclusions', 'Gallery', 'Reviews'].map((item) => <button key={item} onClick={() => setTab(item)} type="button" className={`whitespace-nowrap border-b-2 px-3 py-3 text-[11px] font-semibold ${tab === item ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`} data-testid={`button-detail-tab-${item.toLowerCase()}`}>{item}</button>)}</div><div className="mt-7">{tab === 'Overview' && <div className="grid gap-8 md:grid-cols-[1.2fr_.8fr]"><div><h2 className="font-display text-[26px]">About this trip</h2><p className="mt-3 text-[13px] leading-[1.8] text-muted-foreground">Experience the thrill of paragliding, serene monasteries, beautiful waterfalls and cosy mountain cafes. This is a gentle introduction to the Dhauladhar foothills, with enough breathing room to notice the little things.</p><h3 className="mt-7 text-[11px] font-bold uppercase tracking-[.17em] text-primary">Highlights</h3><div className="mt-4 grid gap-3 sm:grid-cols-2">{['Paraglide at Bir Billing (optional)', 'Local Himachali food & cafes', 'Visit Chokling Monastery', 'Bonfire & group activities', 'Explore hidden waterfalls', 'Scenic drives through valleys'].map((item) => <p key={item} className="flex gap-2 text-[12px] text-muted-foreground"><Check size={15} className="shrink-0 text-primary" />{item}</p>)}</div></div><div className="rounded-2xl bg-secondary/65 p-5"><p className="font-display text-[23px] leading-tight">“Higher views,<br /><em className="text-primary">happier you.”</em></p><div className="mt-8 h-36 overflow-hidden rounded-xl"><img src={alpineHero} alt="" className="size-full object-cover" /></div></div></div>}{tab === 'Itinerary' && <ItineraryPreview />}{tab === 'Inclusions' && <InfoList title="Everything considered" items={['Accommodation in handpicked stays', 'Daily breakfast and two local meals', 'All internal transfers from Delhi', 'Local guide and trip captain', 'Basic first-aid and travel assistance']} />} {tab === 'Exclusions' && <InfoList title="Not included in the trip" items={['Personal shopping and expenses', 'Optional activities unless mentioned', 'Travel insurance', 'Meals not listed under inclusions', 'Any route changes requested personally']} />}{tab === 'Gallery' && <div className="grid gap-3 sm:grid-cols-2">{gallery.map((img, i) => <img key={img} src={img} alt={`Trip view ${i + 1}`} className="h-56 w-full rounded-2xl object-cover" />)}</div>}{tab === 'Reviews' && <div className="rounded-2xl border border-border bg-card p-6"><div className="flex items-center gap-3"><span className="font-display text-4xl">{trip.rating}</span><div><div className="flex text-accent"><Star fill="currentColor" size={16} /><Star fill="currentColor" size={16} /><Star fill="currentColor" size={16} /><Star fill="currentColor" size={16} /><Star fill="currentColor" size={16} /></div><p className="mt-1 text-[11px] text-muted-foreground">Based on 28 thoughtful travellers</p></div></div><p className="mt-6 text-[13px] leading-relaxed text-muted-foreground">“The pace was perfect. We had a plan, but still enough unplanned moments to find our favourite chai stop.”</p></div>}</div></div><aside className="lg:sticky lg:top-28 lg:h-fit"><div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_8px_25px_hsl(154_30%_20%/.08)]"><div className="grid grid-cols-3 divide-x divide-border border-b border-border pb-5"><Metric icon={Clock3} label={`${trip.days} Days`} sub={`${trip.nights} nights`} /><Metric icon={Leaf} label={trip.difficulty} sub="Difficulty" /><Metric icon={Users} label="Group trip" sub={trip.group} /></div><div className="mt-5 flex items-end justify-between"><div><p className="text-[10px] uppercase tracking-[.13em] text-muted-foreground">Starting from</p><p className="mt-1 font-mono-ui text-[24px] font-bold">{trip.price}</p><p className="text-[10px] text-muted-foreground">per person</p></div><div className="flex gap-2"><button onClick={() => onWishlist(trip.id)} type="button" className={`flex size-10 items-center justify-center rounded-full border border-border ${saved ? 'bg-accent text-primary' : 'hover:bg-secondary'}`} aria-label="Save trip" data-testid="button-detail-wishlist"><Heart size={16} fill={saved ? 'currentColor' : 'none'} /></button><button type="button" className="flex size-10 items-center justify-center rounded-full border border-border hover:bg-secondary" aria-label="Share trip" data-testid="button-share-trip"><Share2 size={16} /></button></div></div><Link href={`/book/${trip.id}`} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[12px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]" data-testid="button-book-trip">Book this trip <ArrowRight size={15} /></Link><p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground"><ShieldCheck size={13} className="text-primary" /> No hidden fees · Easy cancellation</p></div><div className="mt-4 rounded-2xl bg-[#e5eadc] p-5"><p className="font-display text-[20px] leading-tight">A little planning.<br /><em className="text-primary">A lot more living.</em></p><p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">Our local team is one message away, from the first question to the last sunset.</p></div></aside></div></main></PageShell>;
+
+  // Trip.image is optional in the Trip model,
+  // so always provide a valid fallback image.
+  const primaryImage = trip.image ?? alpineHero;
+
+  const gallery = [
+    primaryImage,
+    alpineHero,
+    spitiValley,
+    valleyFlowers,
+  ];
+
+  const tripDays = trip.days ?? 1;
+  const tripNights = trip.nights ?? 0;
+
+  return (
+    <PageShell>
+      <main className="mx-auto max-w-[1240px] px-5 py-6 lg:px-8 lg:py-9">
+        <Link
+          href="/trips"
+          className="mb-5 inline-flex items-center gap-2 text-[11px] font-semibold text-muted-foreground hover:text-primary"
+          data-testid="link-back-trips"
+        >
+          <ArrowLeft size={14} />
+          Back to trips
+        </Link>
+
+        <div className="grid gap-7 lg:grid-cols-[1.25fr_.75fr]">
+          <div>
+            <div className="grid h-[360px] grid-cols-4 gap-2 overflow-hidden rounded-2xl md:h-[470px]">
+              <div className="relative col-span-3 overflow-hidden">
+                <img
+                  src={primaryImage}
+                  alt={trip.title}
+                  className="size-full object-cover"
+                />
+
+                <div className="absolute inset-x-5 bottom-5 flex items-end justify-between text-[#f8f2e1]">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[.18em]">
+                      {trip.location}
+                    </p>
+
+                    <h1 className="mt-1 font-display text-[37px] leading-none md:text-[53px]">
+                      {trip.title}
+                    </h1>
+                  </div>
+
+                  <span className="hidden rounded-full bg-[#f8f2e1]/90 px-3 py-2 text-[11px] font-bold text-primary sm:block">
+                    {tripDays} days · {tripNights} nights
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-rows-3 gap-2 overflow-hidden">
+                {gallery.slice(1).map((img, index) => (
+                  <img
+                    key={`${img}-${index}`}
+                    src={img}
+                    alt={`${trip.title} gallery ${index + 2}`}
+                    className="size-full min-h-0 object-cover"
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 flex gap-2 overflow-x-auto">
+              {[
+                'Overview',
+                'Itinerary',
+                'Inclusions',
+                'Exclusions',
+                'Gallery',
+                'Reviews',
+              ].map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setTab(item)}
+                  type="button"
+                  className={`whitespace-nowrap border-b-2 px-3 py-3 text-[11px] font-semibold ${
+                    tab === item
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground'
+                  }`}
+                  data-testid={`button-detail-tab-${item.toLowerCase()}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-7">
+              {tab === 'Overview' && (
+                <div className="grid gap-8 md:grid-cols-[1.2fr_.8fr]">
+                  <div>
+                    <h2 className="font-display text-[26px]">
+                      About this trip
+                    </h2>
+
+                    <p className="mt-3 text-[13px] leading-[1.8] text-muted-foreground">
+                      Experience the thrill of paragliding, serene monasteries,
+                      beautiful waterfalls and cosy mountain cafes. This is a
+                      gentle introduction to the Dhauladhar foothills, with
+                      enough breathing room to notice the little things.
+                    </p>
+
+                    <h3 className="mt-7 text-[11px] font-bold uppercase tracking-[.17em] text-primary">
+                      Highlights
+                    </h3>
+
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {[
+                        'Paraglide at Bir Billing (optional)',
+                        'Local Himachali food & cafes',
+                        'Visit Chokling Monastery',
+                        'Bonfire & group activities',
+                        'Explore hidden waterfalls',
+                        'Scenic drives through valleys',
+                      ].map((item) => (
+                        <p
+                          key={item}
+                          className="flex gap-2 text-[12px] text-muted-foreground"
+                        >
+                          <Check
+                            size={15}
+                            className="shrink-0 text-primary"
+                          />
+                          {item}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-secondary/65 p-5">
+                    <p className="font-display text-[23px] leading-tight">
+                      “Higher views,
+                      <br />
+                      <em className="text-primary">happier you.”</em>
+                    </p>
+
+                    <div className="mt-8 h-36 overflow-hidden rounded-xl">
+                      <img
+                        src={alpineHero}
+                        alt=""
+                        className="size-full object-cover"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {tab === 'Itinerary' && <ItineraryPreview />}
+
+              {tab === 'Inclusions' && (
+                <InfoList
+                  title="Everything considered"
+                  items={[
+                    'Accommodation in handpicked stays',
+                    'Daily breakfast and two local meals',
+                    'All internal transfers from Delhi',
+                    'Local guide and trip captain',
+                    'Basic first-aid and travel assistance',
+                  ]}
+                />
+              )}
+
+              {tab === 'Exclusions' && (
+                <InfoList
+                  title="Not included in the trip"
+                  items={[
+                    'Personal shopping and expenses',
+                    'Optional activities unless mentioned',
+                    'Travel insurance',
+                    'Meals not listed under inclusions',
+                    'Any route changes requested personally',
+                  ]}
+                />
+              )}
+
+              {tab === 'Gallery' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {gallery.map((img, index) => (
+                    <img
+                      key={`${img}-${index}`}
+                      src={img}
+                      alt={`Trip view ${index + 1}`}
+                      className="h-56 w-full rounded-2xl object-cover"
+                    />
+                  ))}
+                </div>
+              )}
+
+              {tab === 'Reviews' && (
+                <div className="rounded-2xl border border-border bg-card p-6">
+                  <div className="flex items-center gap-3">
+                    <span className="font-display text-4xl">
+                      {trip.rating ?? '—'}
+                    </span>
+
+                    <div>
+                      <div className="flex text-accent">
+                        <Star fill="currentColor" size={16} />
+                        <Star fill="currentColor" size={16} />
+                        <Star fill="currentColor" size={16} />
+                        <Star fill="currentColor" size={16} />
+                        <Star fill="currentColor" size={16} />
+                      </div>
+
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Based on 28 thoughtful travellers
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="mt-6 text-[13px] leading-relaxed text-muted-foreground">
+                    “The pace was perfect. We had a plan, but still enough
+                    unplanned moments to find our favourite chai stop.”
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <aside className="lg:sticky lg:top-28 lg:h-fit">
+            <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-[0_8px_25px_hsl(154_30%_20%/.08)]">
+              <div className="grid grid-cols-3 divide-x divide-border border-b border-border pb-5">
+                <Metric
+                  icon={Clock3}
+                  label={`${tripDays} Days`}
+                  sub={`${tripNights} nights`}
+                />
+
+                <Metric
+                  icon={Leaf}
+                  label={trip.difficulty ?? 'Not specified'}
+                  sub="Difficulty"
+                />
+
+                <Metric
+                  icon={Users}
+                  label="Group trip"
+                  sub={trip.group ?? 'Group'}
+                />
+              </div>
+
+              <div className="mt-5 flex items-end justify-between">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[.13em] text-muted-foreground">
+                    Starting from
+                  </p>
+
+                  <p className="mt-1 font-mono-ui text-[24px] font-bold">
+                    {trip.price ?? 'Price unavailable'}
+                  </p>
+
+                  <p className="text-[10px] text-muted-foreground">
+                    per person
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onWishlist(trip.id)}
+                    type="button"
+                    className={`flex size-10 items-center justify-center rounded-full border border-border ${
+                      saved
+                        ? 'bg-accent text-primary'
+                        : 'hover:bg-secondary'
+                    }`}
+                    aria-label="Save trip"
+                    data-testid="button-detail-wishlist"
+                  >
+                    <Heart
+                      size={16}
+                      fill={saved ? 'currentColor' : 'none'}
+                    />
+                  </button>
+
+                  <button
+                    type="button"
+                    className="flex size-10 items-center justify-center rounded-full border border-border hover:bg-secondary"
+                    aria-label="Share trip"
+                    data-testid="button-share-trip"
+                  >
+                    <Share2 size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <Link
+                href={`/book/${trip.id}`}
+                className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[12px] font-bold text-primary-foreground transition-transform hover:scale-[1.02]"
+                data-testid="button-book-trip"
+              >
+                Book this trip
+                <ArrowRight size={15} />
+              </Link>
+
+              <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-[10px] text-muted-foreground">
+                <ShieldCheck size={13} className="text-primary" />
+                No hidden fees · Easy cancellation
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-2xl bg-[#e5eadc] p-5">
+              <p className="font-display text-[20px] leading-tight">
+                A little planning.
+                <br />
+                <em className="text-primary">A lot more living.</em>
+              </p>
+
+              <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
+                Our local team is one message away, from the first question to
+                the last sunset.
+              </p>
+            </div>
+          </aside>
+        </div>
+      </main>
+    </PageShell>
+  );
 }
