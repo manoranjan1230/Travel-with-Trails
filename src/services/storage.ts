@@ -146,6 +146,8 @@ export async function saveUserProfileToFirestore(
     emergencyNumber?: string;
     profileImageUrl?: string;
     address?: string;
+    gender?: string;
+    age?: number | string;
     role?: 'traveller' | 'admin' | 'guide';
     provider?: 'email' | 'google' | 'phone';
     isActive?: boolean;
@@ -168,6 +170,8 @@ export async function saveUserProfileToFirestore(
       emergencyNumber: profile.emergencyNumber || '',
       profileImageUrl: profile.profileImageUrl || '',
       address: profile.address || '',
+      gender: profile.gender || '',
+      age: typeof profile.age === 'number' ? profile.age : Number(profile.age || 0) || undefined,
       role: profile.role || 'traveller',
       provider: profile.provider || 'email',
       isActive: profile.isActive ?? true,

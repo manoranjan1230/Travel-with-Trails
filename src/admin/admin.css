@@ -1168,15 +1168,29 @@
   gap: 10px;
 }
 
-.admin-message-top strong {
+.admin-message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.admin-message-meta span {
+  color: #5f7068;
   font-size: 10px;
+  line-height: 1.4;
+}
+
+.admin-message-top strong {
+  font-size: 12px;
 }
 
 .admin-message-content p {
   margin: 6px 0;
   color: #596b62;
-  font-size: 10px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 .admin-message-content > span {

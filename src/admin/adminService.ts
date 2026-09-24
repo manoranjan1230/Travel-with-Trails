@@ -52,6 +52,18 @@ function normalizeUser(
   id: string,
   data: DocumentData
 ): UserRecord {
+  const dob = typeof data.dob === 'string' ? data.dob : undefined;
+  const parsedDob = dob ? new Date(dob) : null;
+  const computedAge =
+    typeof data.age === 'number' && Number.isFinite(data.age)
+      ? data.age
+      : parsedDob && !Number.isNaN(parsedDob.getTime())
+        ? Math.max(
+            0,
+            new Date().getFullYear() - parsedDob.getFullYear()
+          )
+        : undefined;
+
   return {
     id,
     name: String(data.name || ''),
@@ -60,6 +72,9 @@ function normalizeUser(
     address: data.address,
     profileImageUrl: data.profileImageUrl,
     emergencyNumber: data.emergencyNumber,
+    gender: data.gender ? String(data.gender) : undefined,
+    dob,
+    age: computedAge,
     role: data.role,
     provider: data.provider,
     isActive: data.isActive,

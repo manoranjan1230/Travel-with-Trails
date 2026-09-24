@@ -27,6 +27,8 @@ export type StoredUser = {
   mobile: string;
   passwordHash: string;
   address?: string;
+  gender?: string;
+  age?: number;
   profileImageUrl?: string;
   emergencyNumber?: string;
   role?: 'traveller' | 'admin' | 'guide';
@@ -42,6 +44,8 @@ export type CurrentUser = {
   email: string;
   mobile?: string;
   address?: string;
+  gender?: string;
+  age?: number;
   profileImageUrl?: string;
   emergencyNumber?: string;
   role?: 'traveller' | 'admin' | 'guide';
@@ -183,6 +187,8 @@ export async function signUpWithFirebase({
     profileImageUrl:
       profileImageUrl || '',
     address: address || '',
+    gender: '',
+    age: undefined,
     role: 'traveller',
     provider: 'email',
     isActive: true,
@@ -207,6 +213,8 @@ export async function signUpWithFirebase({
     profileImageUrl:
       userRecord.profileImageUrl,
     address: userRecord.address,
+    gender: userRecord.gender || '',
+    age: userRecord.age,
     role: userRecord.role,
   });
 
@@ -316,6 +324,8 @@ export async function loginWithFirebase(
     profileImageUrl:
       data.profileImageUrl || '',
     address: data.address || '',
+    gender: data.gender || '',
+    age: data.age,
     role:
       data.role || 'traveller',
   });
@@ -373,6 +383,8 @@ export async function signInWithGoogle() {
       passwordHash: '',
       profileImageUrl:
         firebaseUser.photoURL || '',
+      gender: '',
+      age: undefined,
       role: 'traveller',
       provider: 'google',
       isActive: true,
@@ -389,6 +401,21 @@ export async function signInWithGoogle() {
   } else {
     data =
       userDoc.data() as StoredUser;
+
+    if (!data.profileImageUrl && firebaseUser.photoURL) {
+      await setDoc(
+        userRef,
+        {
+          profileImageUrl: firebaseUser.photoURL,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      data = {
+        ...data,
+        profileImageUrl: firebaseUser.photoURL,
+      };
+    }
   }
 
   saveCurrentUser({
@@ -409,6 +436,8 @@ export async function signInWithGoogle() {
       firebaseUser.photoURL ||
       '',
     address: data.address || '',
+    gender: data.gender || '',
+    age: data.age,
     role:
       data.role || 'traveller',
   });

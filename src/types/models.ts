@@ -8,6 +8,9 @@ export type UserRecord = {
   emergencyNumber?: string;
   profileImageUrl?: string;
   address?: string;
+  gender?: string;
+  dob?: string;
+  age?: number;
   role?: 'traveller' | 'admin' | 'guide';
   provider?: 'email' | 'google' | 'phone';
   isActive?: boolean;

@@ -404,12 +404,18 @@ export function AdminPage() {
   const filteredMessages = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return data.messages;
-    return data.messages.filter((message) =>
-      [message.message, message.userId, message.status].some((value) =>
-        String(value || '').toLowerCase().includes(q)
-      )
-    );
-  }, [data.messages, search]);
+    return data.messages.filter((message) => {
+      const sender = data.users.find((user) => user.id === message.userId);
+      return [
+        message.message,
+        message.userId,
+        sender?.name,
+        sender?.gender,
+        sender?.age,
+        message.status,
+      ].some((value) => String(value || '').toLowerCase().includes(q));
+    });
+  }, [data.messages, data.users, search]);
 
   const openTripForm = (trip?: Trip) => {
     if (trip) {
@@ -1347,19 +1353,30 @@ export function AdminPage() {
         <section className="admin-section-card">
           <SectionHeader title="Messages" subtitle="Messages from the existing contacts collection." />
           <div className="admin-message-list">
-            {filteredMessages.map((message) => (
-              <article key={message.id} className="admin-message-card">
-                <div className="admin-message-icon"><MessageSquare size={17} /></div>
-                <div className="admin-message-content">
-                  <div className="admin-message-top">
-                    <strong>{message.userId || 'Unknown user'}</strong>
-                    <StatusBadge status={message.status || 'new'} />
+            {filteredMessages.map((message) => {
+              const sender = data.users.find((user) => user.id === message.userId);
+              const senderName = sender?.name || 'Unknown user';
+              const senderGender = sender?.gender || 'Gender not shared';
+              const senderAge = sender?.age ? `${sender.age} yrs` : 'Age not shared';
+
+              return (
+                <article key={message.id} className="admin-message-card">
+                  <div className="admin-message-icon"><MessageSquare size={17} /></div>
+                  <div className="admin-message-content">
+                    <div className="admin-message-top">
+                      <strong>{senderName}</strong>
+                      <StatusBadge status={message.status || 'new'} />
+                    </div>
+                    <div className="admin-message-meta">
+                      <span>{senderGender}</span>
+                      <span>{senderAge}</span>
+                    </div>
+                    <p>{message.message}</p>
+                    <span>{formatDate(message.createdAt)}</span>
                   </div>
-                  <p>{message.message}</p>
-                  <span>{formatDate(message.createdAt)}</span>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
           {!filteredMessages.length && <EmptyState text="No messages match your search." />}
         </section>
@@ -1461,7 +1478,7 @@ export function AdminPage() {
 
         <section className="admin-dashboard-grid admin-dashboard-grid-bottom">
           <RecentUsers users={data.users} />
-          <RecentMessages messages={data.messages} />
+          <RecentMessages messages={data.messages} users={data.users} />
         </section>
       </>
     );
@@ -1734,21 +1751,35 @@ function RecentUsers({ users }: { users: UserRecord[] }) {
   );
 }
 
-function RecentMessages({ messages }: { messages: ContactMessage[] }) {
+function RecentMessages({
+  messages,
+  users,
+}: {
+  messages: ContactMessage[];
+  users: UserRecord[];
+}) {
   return (
     <section className="admin-section-card">
       <SectionHeader title="Recent Messages" subtitle="Latest contact messages." />
       <div className="admin-mini-list">
-        {messages.slice(0, 5).map((message) => (
-          <div className="admin-mini-row" key={message.id}>
-            <div className="admin-message-icon"><MessageSquare size={16} /></div>
-            <div>
-              <strong>{message.userId || 'Unknown user'}</strong>
-              <span>{message.message}</span>
+        {messages.slice(0, 5).map((message) => {
+          const sender = users.find((user) => user.id === message.userId);
+          const senderName = sender?.name || 'Unknown user';
+          const senderGender = sender?.gender || 'Gender not shared';
+          const senderAge = sender?.age ? `${sender.age} yrs` : 'Age not shared';
+
+          return (
+            <div className="admin-mini-row" key={message.id}>
+              <div className="admin-message-icon"><MessageSquare size={16} /></div>
+              <div>
+                <strong>{senderName}</strong>
+                <span>{senderGender} • {senderAge}</span>
+                <span>{message.message}</span>
+              </div>
+              <StatusBadge status={message.status || 'new'} />
             </div>
-            <StatusBadge status={message.status || 'new'} />
-          </div>
-        ))}
+          );
+        })}
         {!messages.length && <EmptyState text="No messages yet." />}
       </div>
     </section>

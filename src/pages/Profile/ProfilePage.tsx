@@ -32,6 +32,8 @@ type ProfileData = {
   email: string;
   mobile: string;
   address: string;
+  gender: string;
+  age: string;
   profileImageUrl: string;
   emergencyNumber: string;
 };
@@ -44,6 +46,8 @@ function buildProfileFromUser(
     email: current?.email || 'traveller@google.com',
     mobile: current?.mobile || 'Not added',
     address: current?.address || 'No address added yet',
+    gender: current?.gender || 'Not added',
+    age: typeof current?.age === 'number' ? String(current.age) : 'Not added',
     profileImageUrl: current?.profileImageUrl || defaultImage,
     emergencyNumber: current?.emergencyNumber || 'Not added',
   };
@@ -112,6 +116,8 @@ export function ProfilePage() {
       mobile: profile.mobile.trim() || 'Not added',
       address:
         profile.address.trim() || 'No address added yet',
+      gender: profile.gender.trim() || 'Not added',
+      age: profile.age.trim() || 'Not added',
       profileImageUrl:
         profile.profileImageUrl.trim() || defaultImage,
       emergencyNumber:
@@ -121,6 +127,11 @@ export function ProfilePage() {
     const currentUser = readCurrentUser();
 
     if (currentUser?.id) {
+      const parsedAge =
+        nextProfile.age === 'Not added' || nextProfile.age.trim() === ''
+          ? undefined
+          : Number(nextProfile.age);
+
       await saveUserProfileToFirestore({
         id: currentUser.id,
         name: nextProfile.name,
@@ -135,13 +146,20 @@ export function ProfilePage() {
           nextProfile.address === 'No address added yet'
             ? ''
             : nextProfile.address,
+        gender: nextProfile.gender === 'Not added' ? '' : nextProfile.gender,
+        age: parsedAge,
         role: currentUser.role || 'traveller',
       });
     }
 
     localStorage.setItem(
       'travel-with-trails-current-user',
-      JSON.stringify(nextProfile)
+      JSON.stringify({
+        ...currentUser,
+        ...nextProfile,
+        age: nextProfile.age === 'Not added' ? undefined : Number(nextProfile.age),
+        gender: nextProfile.gender === 'Not added' ? '' : nextProfile.gender,
+      })
     );
 
     setProfile(nextProfile);
@@ -324,6 +342,26 @@ export function ProfilePage() {
                             {profile.address}
                           </p>
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-2 grid gap-4 md:grid-cols-2">
+                      <div className="rounded-2xl border border-border bg-background/70 p-4">
+                        <p className="text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">
+                          Gender
+                        </p>
+                        <p className="mt-2 font-medium text-[12px] text-foreground">
+                          {profile.gender}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-border bg-background/70 p-4">
+                        <p className="text-[9px] font-bold uppercase tracking-[.2em] text-muted-foreground">
+                          Age
+                        </p>
+                        <p className="mt-2 font-medium text-[12px] text-foreground">
+                          {profile.age}
+                        </p>
                       </div>
                     </div>
 
@@ -519,6 +557,44 @@ export function ProfilePage() {
                         className="min-h-[84px] w-full rounded-xl border border-border bg-background px-4 py-3 text-[12px] outline-none focus:border-primary"
                       />
                     </label>
+
+                    <div className="block sm:col-span-2 grid gap-4 md:grid-cols-2">
+                      <label className="block">
+                        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">
+                          Gender
+                        </span>
+
+                        <select
+                          value={profile.gender === 'Not added' ? '' : profile.gender}
+                          onChange={(event) =>
+                            updateField('gender', event.target.value)
+                          }
+                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary"
+                        >
+                          <option value="">Select gender</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </label>
+
+                      <label className="block">
+                        <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">
+                          Age
+                        </span>
+
+                        <input
+                          value={profile.age === 'Not added' ? '' : profile.age}
+                          onChange={(event) =>
+                            updateField('age', event.target.value.replace(/\D/g, '').slice(0, 3))
+                          }
+                          type="number"
+                          min="1"
+                          max="120"
+                          className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary"
+                        />
+                      </label>
+                    </div>
 
                     <label className="block sm:col-span-2">
                       <span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">
