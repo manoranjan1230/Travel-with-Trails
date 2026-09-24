@@ -13,6 +13,9 @@ export function AuthPage({ mode = 'login' }: { mode?: 'login' | 'signup' }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
+  const [emergencyNumber, setEmergencyNumber] = useState('');
+  const [address, setAddress] = useState('');
+  const [profileImageUrl, setProfileImageUrl] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -52,7 +55,15 @@ export function AuthPage({ mode = 'login' }: { mode?: 'login' | 'signup' }) {
         if (isLogin) {
           await loginWithFirebase(cleanEmail, password);
         } else {
-          await signUpWithFirebase({ name: name.trim(), email: cleanEmail, mobile: cleanMobile, password, emergencyNumber: '', profileImageUrl: '', address: '' });
+          await signUpWithFirebase({
+            name: name.trim(),
+            email: cleanEmail,
+            mobile: cleanMobile,
+            password,
+            emergencyNumber: emergencyNumber.trim(),
+            profileImageUrl: profileImageUrl.trim(),
+            address: address.trim(),
+          });
         }
         setLocation('/');
         return;
@@ -123,6 +134,9 @@ export function AuthPage({ mode = 'login' }: { mode?: 'login' | 'signup' }) {
       <form onSubmit={submit} className="mt-7 space-y-4">
         {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Full name</span><input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="Your name" /></label>}
         {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Mobile number</span><input value={mobile} onChange={(e) => setMobile(e.target.value.replace(/\D/g, '').slice(0, 10))} type="tel" inputMode="numeric" autoComplete="tel" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="6XXXXXXXXX" required /></label>}
+        {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Emergency contact number</span><input value={emergencyNumber} onChange={(e) => setEmergencyNumber(e.target.value.replace(/\D/g, '').slice(0, 10))} type="tel" inputMode="numeric" autoComplete="tel" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="Emergency mobile number" /></label>}
+        {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Address</span><input value={address} onChange={(e) => setAddress(e.target.value)} autoComplete="street-address" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="Your current address" /></label>}
+        {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Profile image URL</span><input value={profileImageUrl} onChange={(e) => setProfileImageUrl(e.target.value)} type="url" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="https://example.com/avatar.jpg" /></label>}
         <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Email address</span><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="you@example.com" /></label>
         <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Password</span><input value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete={isLogin ? 'current-password' : 'new-password'} className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="Min 8 chars • A-Z • a-z • 0-9 • special character" />{!isLogin && <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">Use at least 8 characters with one uppercase, one lowercase, one number, and one special character.</p>}</label>
         {!isLogin && <label className="block"><span className="mb-1.5 block text-[10px] font-bold uppercase tracking-[.12em] text-muted-foreground">Confirm password</span><input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" autoComplete="new-password" className="h-11 w-full rounded-xl border border-border bg-background px-4 text-[12px] outline-none focus:border-primary" placeholder="Re-enter your password" /></label>}

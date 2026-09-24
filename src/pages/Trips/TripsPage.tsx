@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { trips } from '@/data/trips';
+import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'wouter';
 import type { Trip } from '@/types/models';
 import {
   PageShell,
@@ -8,6 +8,7 @@ import {
   Filters,
   EmptyState,
 } from '@/components/common';
+import { loadTripsFromFirestore } from '@/services/storage';
 
 export function TripsPage({
   wishlist,
@@ -16,32 +17,133 @@ export function TripsPage({
   wishlist: string[];
   onWishlist: (id: string) => void;
 }) {
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState('Himalayas');
-  const [difficulty, setDifficulty] = useState('Any difficulty');
+  const [location, setLocation] = useLocation();
   const [sort, setSort] = useState('Most popular');
+  const [allTrips, setAllTrips] = useState<Trip[]>([]);
+  const [loadingTrips, setLoadingTrips] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadTrips() {
+      try {
+        const tripsFromFirestore = await loadTripsFromFirestore();
+        if (active) {
+          setAllTrips(tripsFromFirestore);
+        }
+      } catch (error) {
+        console.error('Failed to load trips from Firestore.', error);
+        if (active) {
+          setAllTrips([]);
+        }
+      } finally {
+        if (active) {
+          setLoadingTrips(false);
+        }
+      }
+    }
+
+    loadTrips();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const getFilterState = () => {
+    const queryString = location.includes('?')
+      ? location.slice(location.indexOf('?') + 1)
+      : '';
+
+    const params = new URLSearchParams(queryString);
+
+    return {
+      query: params.get('query') || '',
+      category: params.get('category') || '',
+      difficulty:
+        params.get('difficulty') || 'Any difficulty',
+    };
+  };
+
+  const { query, category, difficulty } =
+    getFilterState();
+
+  const applyFilterState = (
+    nextCategory: string,
+    nextDifficulty: string,
+    nextQuery: string
+  ) => {
+    const nextParams = new URLSearchParams();
+
+    if (nextCategory) {
+      nextParams.set('category', nextCategory);
+    }
+
+    if (
+      nextDifficulty &&
+      nextDifficulty !== 'Any difficulty'
+    ) {
+      nextParams.set('difficulty', nextDifficulty);
+    }
+
+    if (nextQuery) {
+      nextParams.set('query', nextQuery);
+    }
+
+    setLocation(
+      `/trips${
+        nextParams.toString()
+          ? `?${nextParams.toString()}`
+          : ''
+      }`
+    );
+  };
+
+  const visibleTrips = useMemo(
+    () => allTrips.filter((trip: Trip) => !trip.isHidden),
+    [allTrips]
+  );
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
+    const normalizedCategory = category.trim();
 
-    const result = trips.filter((trip: Trip) => {
-      const searchableText = `${trip.title} ${trip.location ?? ''}`.toLowerCase();
+    const result = visibleTrips.filter((trip: Trip) => {
+      const searchableText = `${trip.title} ${
+        trip.location ?? ''
+      }`.toLowerCase();
 
       const matchesQuery =
-        !normalizedQuery || searchableText.includes(normalizedQuery);
+        !normalizedQuery ||
+        searchableText.includes(normalizedQuery);
 
-      const matchesCategory =
-        !category ||
-        category === 'International' ||
-        (category === 'Weekend'
-          ? (trip.days ?? 0) <= 3
-          : trip.category === category);
+      let matchesCategory = true;
+
+      if (normalizedCategory) {
+        if (
+          normalizedCategory === 'Weekend getaway' ||
+          normalizedCategory === 'Weekend'
+        ) {
+          matchesCategory = (trip.days ?? 0) <= 3;
+        } else if (
+          normalizedCategory === 'International'
+        ) {
+          matchesCategory = false;
+        } else {
+          matchesCategory =
+            trip.category === normalizedCategory;
+        }
+      }
 
       const matchesDifficulty =
         difficulty === 'Any difficulty' ||
         trip.difficulty === difficulty;
 
-      return matchesQuery && matchesCategory && matchesDifficulty;
+      return (
+        matchesQuery &&
+        matchesCategory &&
+        matchesDifficulty
+      );
     });
 
     if (sort === 'Price: low to high') {
@@ -59,12 +161,10 @@ export function TripsPage({
     }
 
     return result;
-  }, [query, category, difficulty, sort]);
+  }, [visibleTrips, query, category, difficulty, sort]);
 
   const resetFilters = () => {
-    setCategory('');
-    setDifficulty('Any difficulty');
-    setQuery('');
+    setLocation('/trips');
   };
 
   return (
@@ -87,7 +187,7 @@ export function TripsPage({
           </div>
 
           <div className="hidden rounded-full bg-secondary px-4 py-2 text-[11px] font-semibold text-primary md:block">
-            {filtered.length} journeys
+            {loadingTrips ? 'Loading…' : `${filtered.length} journeys`}
           </div>
         </div>
 
@@ -95,9 +195,21 @@ export function TripsPage({
           <div className="hidden lg:block">
             <Filters
               category={category}
-              setCategory={setCategory}
+              setCategory={(nextCategory) => {
+                applyFilterState(
+                  nextCategory,
+                  difficulty,
+                  query
+                );
+              }}
               difficulty={difficulty}
-              setDifficulty={setDifficulty}
+              setDifficulty={(nextDifficulty) => {
+                applyFilterState(
+                  category,
+                  nextDifficulty,
+                  query
+                );
+              }}
               onClear={resetFilters}
             />
           </div>
@@ -106,7 +218,13 @@ export function TripsPage({
             <div className="flex flex-col gap-3 sm:flex-row">
               <SearchBox
                 value={query}
-                onChange={setQuery}
+                onChange={(nextQuery) => {
+                  applyFilterState(
+                    category,
+                    difficulty,
+                    nextQuery
+                  );
+                }}
                 placeholder="Search trips or destinations..."
               />
 
@@ -115,7 +233,9 @@ export function TripsPage({
 
                 <select
                   value={sort}
-                  onChange={(event) => setSort(event.target.value)}
+                  onChange={(event) =>
+                    setSort(event.target.value)
+                  }
                   className="min-w-0 flex-1 bg-transparent font-semibold text-foreground outline-none"
                   data-testid="select-sort"
                 >
@@ -127,15 +247,25 @@ export function TripsPage({
             </div>
 
             <div className="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-              {['All', 'Himalayas', 'Devotional', 'Weekend'].map((chip) => (
+              {[
+                'All',
+                'Himalayas',
+                'Devotional',
+                'Weekend',
+              ].map((chip) => (
                 <button
                   key={chip}
                   onClick={() =>
-                    setCategory(chip === 'All' ? '' : chip)
+                    applyFilterState(
+                      chip === 'All' ? '' : chip,
+                      difficulty,
+                      query
+                    )
                   }
                   type="button"
                   className={`whitespace-nowrap rounded-full border px-4 py-2 text-[10px] font-semibold ${
-                    category === chip || (chip === 'All' && !category)
+                    category ===
+                    (chip === 'All' ? '' : chip)
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-card'
                   }`}

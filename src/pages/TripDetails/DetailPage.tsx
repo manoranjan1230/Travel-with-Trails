@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import {
   ArrowLeft,
@@ -13,15 +13,15 @@ import {
   Users,
 } from 'lucide-react';
 
+import { trips as fallbackTrips } from '@/data/trips';
+import { resolveTripImage } from '@/data/assetLibrary';
 import {
-  trips,
-  alpineHero,
-  spitiValley,
-  kedarnath,
-  valleyFlowers,
-} from '@/data/trips';
+  loadTripsFromFirestore,
+  saveTripReviewsToFirestore,
+} from '@/services/storage';
 
-import { PageShell, Metric, ItineraryPreview, InfoList } from '@/components/common';
+import { PageShell, Metric, InfoList } from '@/components/common';
+import { getTripAverageRating, type Trip, type TripReview } from '@/types/models';
 
 export function DetailPage({
   wishlist,
@@ -31,26 +31,152 @@ export function DetailPage({
   onWishlist: (id: string) => void;
 }) {
   const { id } = useParams<{ id: string }>();
+  const [allTrips, setAllTrips] = useState<Trip[]>(fallbackTrips);
+  const [loadingTrips, setLoadingTrips] = useState(true);
 
-  const trip = trips.find((item) => item.id === id) ?? trips[0];
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      try {
+        const firestoreTrips = await loadTripsFromFirestore();
+        if (active) {
+          setAllTrips(firestoreTrips.length ? firestoreTrips : fallbackTrips);
+          setLoadingTrips(false);
+        }
+      } catch {
+        if (active) {
+          setAllTrips(fallbackTrips);
+          setLoadingTrips(false);
+        }
+      }
+    }
+
+    load();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [tab, setTab] = useState('Overview');
+  const [reviewDraft, setReviewDraft] = useState({ rating: 5, description: '' });
+
+  const trip = allTrips.find((item) => String(item.id) === String(id)) ?? fallbackTrips.find((item) => String(item.id) === String(id)) ?? null;
+  const [tripReviews, setTripReviews] = useState<TripReview[]>(() => (trip && Array.isArray(trip.reviews) ? trip.reviews : []));
+  const liveReviews = tripReviews.length ? tripReviews : (Array.isArray(trip?.reviews) ? trip.reviews : []);
+  const liveRating = getTripAverageRating({ ...trip, reviews: liveReviews });
+
+  useEffect(() => {
+    if (!trip?.id) return;
+
+    const saved = localStorage.getItem(`trip-reviews-${trip.id}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as TripReview[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setTripReviews(parsed);
+          return;
+        }
+      } catch {
+        // ignore malformed saved reviews and fall back to trip data
+      }
+    }
+
+    setTripReviews(Array.isArray(trip.reviews) ? trip.reviews : []);
+  }, [trip?.id, trip?.reviews]);
+
+  useEffect(() => {
+    if (!trip?.id) return;
+    localStorage.setItem(`trip-reviews-${trip.id}`, JSON.stringify(tripReviews));
+  }, [trip?.id, tripReviews]);
+
+  if (loadingTrips) {
+    return (
+      <PageShell>
+        <main className="mx-auto max-w-[1240px] px-5 py-12 lg:px-8">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[.18em] text-primary">Loading trip</p>
+            <h1 className="mt-3 font-display text-3xl">Fetching trip details…</h1>
+          </div>
+        </main>
+      </PageShell>
+    );
+  }
+
+  if (!trip) {
+    return (
+      <PageShell>
+        <main className="mx-auto max-w-[1240px] px-5 py-12 lg:px-8">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[.18em] text-primary">Trip not found</p>
+            <h1 className="mt-3 font-display text-3xl">This trip is not available right now.</h1>
+          </div>
+        </main>
+      </PageShell>
+    );
+  }
 
   const saved = wishlist.includes(trip.id);
 
-  // Trip.image is optional in the Trip model,
-  // so always provide a valid fallback image.
-  const primaryImage = trip.image ?? alpineHero;
+  const primaryImage = resolveTripImage(trip.image ?? trip.images?.[0] ?? '') || '';
+  const gallery: string[] = (trip.images?.length ? trip.images : trip.image ? [trip.image] : [])
+    .map((image: string) => resolveTripImage(String(image || '')))
+    .filter((image): image is string => Boolean(image))
+    .slice(0, 5);
 
-  const gallery = [
-    primaryImage,
-    alpineHero,
-    spitiValley,
-    valleyFlowers,
-  ];
+  const displayReviews: TripReview[] = liveReviews;
+
+  const submitReview = async () => {
+    const cleanMessage = reviewDraft.description.trim();
+    if (!cleanMessage) {
+      return;
+    }
+
+    const nextReview: TripReview = {
+      timestamp: new Date().toISOString(),
+      rating: Math.max(1, Math.min(5, reviewDraft.rating)),
+      userName: 'You',
+      description: cleanMessage,
+    };
+
+    const nextReviews = [nextReview, ...tripReviews];
+
+    setTripReviews(nextReviews);
+    setReviewDraft({ rating: 5, description: '' });
+
+    try {
+      await saveTripReviewsToFirestore(trip.id, nextReviews);
+    } catch {
+      // keep the local submit state even if Firestore write fails
+    }
+  };
 
   const tripDays = trip.days ?? 1;
   const tripNights = trip.nights ?? 0;
+  const tripHighlights: string[] = trip.highlights?.length ? trip.highlights : [
+    'Local stories and mountain hospitality',
+    'Scenic route with handpicked stays',
+    'Guided experiences and flexible pace',
+    'Group support and local guides',
+  ];
+  const tripInclusions: string[] = trip.inclusion?.length ? trip.inclusion : [
+    'Handpicked accommodation',
+    'Daily breakfast and local meals',
+    'Travel coordination and local guide',
+    'On-trip support and logistics',
+  ];
+  const tripExclusions: string[] = trip.exclusion?.length ? trip.exclusion : [
+    'Flights and personal travel',
+    'Insurance not included',
+    'Optional activities and shopping',
+    'Meals outside the plan',
+  ];
+  const itineraryEntries: Array<{ departure: string; destination: string; description: string; imageUrl: string }> = trip.itinerary?.length ? trip.itinerary : [
+    { departure: 'Day 1', destination: 'Arrival', description: 'Arrival and welcome briefing', imageUrl: primaryImage },
+    { departure: 'Day 2', destination: 'Exploration', description: 'Sightseeing and local experiences', imageUrl: primaryImage },
+    { departure: 'Day 3', destination: 'Departure', description: 'Final views and departure', imageUrl: primaryImage },
+  ];
 
   return (
     <PageShell>
@@ -92,7 +218,7 @@ export function DetailPage({
               </div>
 
               <div className="grid grid-rows-3 gap-2 overflow-hidden">
-                {gallery.slice(1).map((img, index) => (
+                {gallery.slice(1).map((img: string, index: number) => (
                   <img
                     key={`${img}-${index}`}
                     src={img}
@@ -137,10 +263,7 @@ export function DetailPage({
                     </h2>
 
                     <p className="mt-3 text-[13px] leading-[1.8] text-muted-foreground">
-                      Experience the thrill of paragliding, serene monasteries,
-                      beautiful waterfalls and cosy mountain cafes. This is a
-                      gentle introduction to the Dhauladhar foothills, with
-                      enough breathing room to notice the little things.
+                      {trip.description || trip.blurb || 'Discover a thoughtfully planned trip that balances comfort, adventure, and local experiences.'}
                     </p>
 
                     <h3 className="mt-7 text-[11px] font-bold uppercase tracking-[.17em] text-primary">
@@ -148,14 +271,7 @@ export function DetailPage({
                     </h3>
 
                     <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      {[
-                        'Paraglide at Bir Billing (optional)',
-                        'Local Himachali food & cafes',
-                        'Visit Chokling Monastery',
-                        'Bonfire & group activities',
-                        'Explore hidden waterfalls',
-                        'Scenic drives through valleys',
-                      ].map((item) => (
+                      {tripHighlights.map((item: string) => (
                         <p
                           key={item}
                           className="flex gap-2 text-[12px] text-muted-foreground"
@@ -177,84 +293,153 @@ export function DetailPage({
                       <em className="text-primary">happier you.”</em>
                     </p>
 
-                    <div className="mt-8 h-36 overflow-hidden rounded-xl">
-                      <img
-                        src={alpineHero}
-                        alt=""
-                        className="size-full object-cover"
-                      />
+                    <div className="mt-8 rounded-xl border border-border bg-secondary/60 p-4 text-[12px] text-muted-foreground">
+                      <p className="font-semibold text-primary">Trip vibe</p>
+                      <p className="mt-2 leading-relaxed">{trip.blurb || trip.description || 'Thoughtful planning, local experiences, and plenty of room to breathe.'}</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {tab === 'Itinerary' && <ItineraryPreview />}
+              {tab === 'Itinerary' && (
+                <div className="space-y-3">
+                  {itineraryEntries.map((entry: { departure: string; destination: string; description: string; imageUrl: string }, index: number) => (
+                    <div className="flex gap-4 rounded-2xl border border-border bg-card p-4" key={`${entry.departure}-${index}`}>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold text-primary">
+                        {String(entry.departure).replace(/[^0-9]/g, '') || index + 1}
+                      </span>
 
-              {tab === 'Inclusions' && (
-                <InfoList
-                  title="Everything considered"
-                  items={[
-                    'Accommodation in handpicked stays',
-                    'Daily breakfast and two local meals',
-                    'All internal transfers from Delhi',
-                    'Local guide and trip captain',
-                    'Basic first-aid and travel assistance',
-                  ]}
-                />
-              )}
-
-              {tab === 'Exclusions' && (
-                <InfoList
-                  title="Not included in the trip"
-                  items={[
-                    'Personal shopping and expenses',
-                    'Optional activities unless mentioned',
-                    'Travel insurance',
-                    'Meals not listed under inclusions',
-                    'Any route changes requested personally',
-                  ]}
-                />
-              )}
-
-              {tab === 'Gallery' && (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {gallery.map((img, index) => (
-                    <img
-                      key={`${img}-${index}`}
-                      src={img}
-                      alt={`Trip view ${index + 1}`}
-                      className="h-56 w-full rounded-2xl object-cover"
-                    />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] font-bold">{entry.destination || entry.departure}</p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">{entry.description}</p>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
 
-              {tab === 'Reviews' && (
-                <div className="rounded-2xl border border-border bg-card p-6">
-                  <div className="flex items-center gap-3">
-                    <span className="font-display text-4xl">
-                      {trip.rating ?? '—'}
-                    </span>
+              {tab === 'Inclusions' && (
+                <InfoList title="Everything considered" items={tripInclusions} />
+              )}
 
-                    <div>
-                      <div className="flex text-accent">
-                        <Star fill="currentColor" size={16} />
-                        <Star fill="currentColor" size={16} />
-                        <Star fill="currentColor" size={16} />
-                        <Star fill="currentColor" size={16} />
-                        <Star fill="currentColor" size={16} />
+              {tab === 'Exclusions' && (
+                <InfoList title="Not included in the trip" items={tripExclusions} />
+              )}
+
+              {tab === 'Gallery' && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {gallery.length ? (
+                    gallery.map((img: string, index: number) => (
+                      <img
+                        key={`${img}-${index}`}
+                        src={img}
+                        alt={`Trip view ${index + 1}`}
+                        className="h-56 w-full rounded-2xl object-cover"
+                      />
+                    ))
+                  ) : (
+                    <p className="text-[13px] text-muted-foreground">No gallery images were added for this trip.</p>
+                  )}
+                </div>
+              )}
+
+              {tab === 'Reviews' && (
+                <div className="space-y-6">
+                  <div className="rounded-2xl border border-border bg-card p-6">
+                    <div className="flex items-center gap-3">
+                      <span className="font-display text-4xl">
+                        {liveRating > 0 ? liveRating.toFixed(1) : '—'}
+                      </span>
+
+                      <div>
+                        <div className="flex text-accent">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              fill={star <= Math.round(liveRating || 0) ? 'currentColor' : 'none'}
+                              size={16}
+                              className={star <= Math.round(liveRating || 0) ? 'text-accent' : 'text-muted-foreground'}
+                            />
+                          ))}
+                        </div>
+
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {displayReviews.length ? `Based on ${displayReviews.length} traveller review${displayReviews.length > 1 ? 's' : ''}` : 'Be the first traveller to share feedback'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-dashed border-border p-4">
+                      <p className="text-[11px] font-bold uppercase tracking-[.16em] text-primary">Leave a review</p>
+
+                      <div className="mt-3 flex items-center gap-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewDraft((current) => ({ ...current, rating: star }))}
+                            className="text-xl transition-colors"
+                            aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
+                          >
+                            <Star
+                              size={18}
+                              fill={star <= reviewDraft.rating ? 'currentColor' : 'none'}
+                              className={star <= reviewDraft.rating ? 'text-accent' : 'text-muted-foreground'}
+                            />
+                          </button>
+                        ))}
                       </div>
 
-                      <p className="mt-1 text-[11px] text-muted-foreground">
-                        Based on 28 thoughtful travellers
-                      </p>
+                      <textarea
+                        value={reviewDraft.description}
+                        onChange={(event) => setReviewDraft((current) => ({ ...current, description: event.target.value }))}
+                        rows={4}
+                        className="mt-4 w-full rounded-xl border border-border bg-background px-3 py-2 text-[12px] text-foreground outline-none focus:border-primary"
+                        placeholder="Share your experience of this trip..."
+                      />
+
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={submitReview}
+                          className="rounded-full bg-primary px-4 py-2 text-[11px] font-semibold text-primary-foreground"
+                        >
+                          Submit review
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <p className="mt-6 text-[13px] leading-relaxed text-muted-foreground">
-                    “The pace was perfect. We had a plan, but still enough
-                    unplanned moments to find our favourite chai stop.”
-                  </p>
+                  <div className="space-y-3">
+                    {displayReviews.length ? (
+                      displayReviews.map((review: TripReview, index: number) => (
+                        <div key={`${review.userName}-${review.timestamp}-${index}`} className="rounded-2xl border border-border bg-card p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[12px] font-semibold">{review.userName || 'Traveller'}</p>
+                            <div className="flex items-center gap-1 text-accent">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  size={12}
+                                  fill={star <= Number(review.rating || 0) ? 'currentColor' : 'none'}
+                                  className={star <= Number(review.rating || 0) ? 'text-accent' : 'text-muted-foreground'}
+                                />
+                              ))}
+                            </div>
+                          </div>
+
+                          <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">{review.description}</p>
+                          <p className="mt-2 text-[10px] uppercase tracking-[.12em] text-muted-foreground">
+                            {new Date(review.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-[13px] text-muted-foreground">
+                        No reviews yet for this trip. Add the first one above.
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

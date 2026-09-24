@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { navItems } from '@/data/navigation';
-import type { Trip } from '@/types/models';
+import { getTripAverageRating, type Trip } from '@/types/models';
 import { readCurrentUser } from '@/services/auth';
 
 export function Brand() {
@@ -470,7 +470,7 @@ export function TripCard({
               </span>
 
               <span className="flex items-center gap-1 text-[11px]">
-                <Star size={12} fill="currentColor" /> {trip.rating}
+                <Star size={12} fill="currentColor" /> {getTripAverageRating(trip) > 0 ? getTripAverageRating(trip).toFixed(1) : '—'}
               </span>
             </div>
           )}

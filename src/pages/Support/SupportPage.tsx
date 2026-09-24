@@ -14,15 +14,45 @@ const faqs = [
 import { trips, alpineHero, spitiValley, kedarnath, valleyFlowers } from '@/data/trips';
 import type { Trip, Traveller, Booking } from '@/types/models';
 import { PageShell, SearchBox, SectionTitle, TripCard, TrustRow, Filters, Metric, ItineraryPreview, InfoList, BookingStepper, Field, EmptyState } from '@/components/common';
-import { readTravellerStorage, TRAVELLERS_KEY } from '@/services/storage';
+import { createContactMessage, readTravellerStorage, TRAVELLERS_KEY } from '@/services/storage';
+import { readCurrentUser } from '@/services/auth';
 
 export function SupportPage() {
   const [open, setOpen] = useState<number | null>(0);
   const [question, setQuestion] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSend = async () => {
+    const trimmed = question.trim();
+
+    if (!trimmed) {
+      setError('Please type a message before sending.');
+      return;
+    }
+
+    setSending(true);
+    setError('');
+
+    try {
+      const currentUser = readCurrentUser();
+      await createContactMessage({
+        userId: currentUser?.id,
+        message: trimmed,
+      });
+      setQuestion('');
+      setSent(true);
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : 'Could not send your message.';
+      setError(message);
+    } finally {
+      setSending(false);
+    }
+  };
   return <PageShell><main className="mx-auto max-w-[1240px] px-5 py-8 lg:px-8 lg:py-12"><div className="grid gap-8 lg:grid-cols-[220px_1fr_280px]">
     <aside className="hidden lg:block"><p className="text-[10px] font-bold uppercase tracking-[.23em] text-primary/70">Here when you need us</p><h1 className="mt-2 font-display text-[42px] leading-none">Support</h1><p className="mt-4 text-[12px] leading-relaxed text-muted-foreground">A calm answer is never more than a message away.</p><div className="mt-8 space-y-2">{[{ label: 'Help centre', icon: Headphones }, { label: 'FAQs', icon: ChevronRight }, { label: 'Contact support', icon: Send }, { label: 'Travel guidelines', icon: ShieldCheck }].map(({ label, icon: Icon }) => <button key={label} type="button" className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[11px] font-semibold hover:bg-secondary" data-testid={`button-support-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={15} className="text-primary" />{label}</button>)}</div></aside>
     <section><div className="lg:hidden"><p className="text-[10px] font-bold uppercase tracking-[.23em] text-primary/70">Here when you need us</p><h1 className="mt-2 font-display text-[42px]">Support</h1><p className="mt-2 text-[12px] text-muted-foreground">A calm answer is never more than a message away.</p></div><div className="mt-8 rounded-2xl bg-secondary/65 p-5 md:p-7"><div className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-full bg-card text-primary"><Search size={17} /></span><div><p className="text-[12px] font-bold">What can we help you find?</p><p className="mt-1 text-[10px] text-muted-foreground">Search for help with bookings, payments or trips.</p></div></div><input placeholder="Search help topics..." className="mt-5 h-11 w-full rounded-xl border border-border bg-card px-4 text-[12px] outline-none focus:border-primary" data-testid="input-support-search" /></div><div className="mt-8"><p className="text-[10px] font-bold uppercase tracking-[.2em] text-primary/70">Popular questions</p><div className="mt-3 overflow-hidden rounded-2xl border border-border bg-card">{faqs.map((faq, index) => <div key={faq} className="border-b border-border last:border-b-0"><button onClick={() => setOpen(open === index ? null : index)} type="button" className="flex w-full items-center justify-between gap-5 px-5 py-4 text-left text-[12px] font-semibold hover:bg-secondary/40" data-testid={`button-faq-${index + 1}`}><span>{faq}</span><ChevronDown size={15} className={`shrink-0 transition-transform ${open === index ? 'rotate-180 text-primary' : 'text-muted-foreground'}`} /></button>{open === index && <p className="px-5 pb-5 text-[11px] leading-relaxed text-muted-foreground">{index === 0 ? 'Choose a trip you love, select Book this trip, and send us a booking request. Our team will confirm availability and share the simple next steps.' : index === 1 ? 'Accommodation, planned transport, local guidance and the meals listed on each trip page are included. Optional experiences are always clearly marked.' : 'You can cancel up to 14 days before departure for a full trip credit. We keep the policy clear on every booking.'}</p>}</div>)}</div></div></section>
-    <aside className="h-fit rounded-2xl bg-primary p-6 text-primary-foreground"><div className="flex size-10 items-center justify-center rounded-full bg-[#e4b66f] text-primary"><Headphones size={18} /></div><h2 className="mt-5 font-display text-[27px] leading-tight">Still have a question?</h2><p className="mt-3 text-[11px] leading-relaxed text-[#e1e7d7]/75">Our team is just a message away. Tell us what you’re wondering about.</p>{sent ? <div className="mt-6 rounded-xl bg-[#f3ead4]/15 p-4 text-[11px] leading-relaxed"><Check size={16} className="mb-2 text-[#f0c983]" />We’ve got it. A trail guide will get back to you shortly.</div> : <><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask us anything..." className="mt-6 min-h-[92px] w-full resize-none rounded-xl border border-[#dfe9d8]/25 bg-[#f3ead4]/10 p-3 text-[11px] text-primary-foreground outline-none placeholder:text-[#dfe9d8]/50 focus:border-[#f0c983]" data-testid="textarea-support-question" /><button onClick={() => { if (question.trim()) setSent(true); }} type="button" className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#f0c983] text-[11px] font-bold text-primary hover:bg-[#f4d49e]" data-testid="button-send-question">Ask a question <Send size={14} /></button></>}</aside>
+    <aside className="h-fit rounded-2xl bg-primary p-6 text-primary-foreground"><div className="flex size-10 items-center justify-center rounded-full bg-[#e4b66f] text-primary"><Headphones size={18} /></div><h2 className="mt-5 font-display text-[27px] leading-tight">Still have a question?</h2><p className="mt-3 text-[11px] leading-relaxed text-[#e1e7d7]/75">Our team is just a message away. Tell us what you’re wondering about.</p>{sent ? <div className="mt-6 rounded-xl bg-[#f3ead4]/15 p-4 text-[11px] leading-relaxed"><Check size={16} className="mb-2 text-[#f0c983]" />We’ve got it. A trail guide will get back to you shortly.</div> : <><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask us anything..." className="mt-6 min-h-[92px] w-full resize-none rounded-xl border border-[#dfe9d8]/25 bg-[#f3ead4]/10 p-3 text-[11px] text-primary-foreground outline-none placeholder:text-[#dfe9d8]/50 focus:border-[#f0c983]" data-testid="textarea-support-question" />{error && <p className="mt-3 text-[10px] font-medium text-[#ffd6d1]">{error}</p>}<button onClick={handleSend} disabled={sending} type="button" className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[#f0c983] text-[11px] font-bold text-primary hover:bg-[#f4d49e] disabled:opacity-70" data-testid="button-send-question">{sending ? 'Sending…' : 'Ask a question'} <Send size={14} /></button></>}</aside>
   </div></main></PageShell>;
 }

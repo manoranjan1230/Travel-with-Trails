@@ -11,12 +11,15 @@ import {
   type Timestamp,
 } from 'firebase/firestore';
 
-import type {
-  Booking,
-  Traveller,
-  Trip,
+import {
+  getTripAverageRating,
+  type Booking,
+  type Traveller,
+  type Trip,
+  type TripReview,
 } from '@/types/models';
 
+import { resolveTripImage } from '@/data/assetLibrary';
 import { auth, db } from './firebase';
 
 export const TRAVELLERS_KEY =
@@ -76,6 +79,423 @@ export function persistBookings(
     BOOKINGS_KEY,
     JSON.stringify(items)
   );
+}
+
+export function normalizeTravellerForFirestore(
+  traveller: Partial<Traveller> & {
+    id?: string;
+    name?: string;
+    dob?: string;
+    gender?: string;
+    mobile?: string;
+    email?: string;
+    emergencyName?: string;
+    emergencyPhone?: string;
+    relationship?: string;
+    medical?: string;
+  }
+): {
+  gender: 'Female' | 'Male' | 'Other';
+  name: string;
+  age: number;
+  contactNumber: string;
+  emergencyContactNumber: string;
+  email: string;
+  relationWithEmergencyContact: string;
+  medicalCondition: string;
+} {
+  const dateOfBirth = traveller.dob;
+  const parsedDob = dateOfBirth
+    ? new Date(dateOfBirth)
+    : null;
+
+  const age =
+    parsedDob && !Number.isNaN(parsedDob.getTime())
+      ? Math.max(
+          0,
+          new Date().getFullYear() - parsedDob.getFullYear()
+        )
+      : 0;
+
+  return {
+    gender:
+      traveller.gender === 'Female' ||
+      traveller.gender === 'Male' ||
+      traveller.gender === 'Other'
+        ? traveller.gender
+        : 'Other',
+    name: traveller.name?.trim() || 'Traveller',
+    age,
+    contactNumber: traveller.mobile?.trim() || '',
+    emergencyContactNumber:
+      traveller.emergencyPhone?.trim() || '',
+    email: traveller.email?.trim() || '',
+    relationWithEmergencyContact:
+      traveller.relationship?.trim() || '',
+    medicalCondition: traveller.medical?.trim() || '',
+  };
+}
+
+export async function saveUserProfileToFirestore(
+  profile: {
+    id: string;
+    name?: string;
+    email?: string;
+    mobile?: string;
+    passwordHash?: string;
+    emergencyNumber?: string;
+    profileImageUrl?: string;
+    address?: string;
+    role?: 'traveller' | 'admin' | 'guide';
+    provider?: 'email' | 'google' | 'phone';
+    isActive?: boolean;
+  }
+): Promise<void> {
+  if (!db) {
+    return;
+  }
+
+  const userRef = doc(db, 'users', profile.id);
+
+  await setDoc(
+    userRef,
+    {
+      id: profile.id,
+      name: profile.name?.trim() || 'Traveller',
+      email: (profile.email || '').trim().toLowerCase(),
+      mobile: (profile.mobile || '').replace(/\D/g, '').trim(),
+      passwordHash: profile.passwordHash || '',
+      emergencyNumber: profile.emergencyNumber || '',
+      profileImageUrl: profile.profileImageUrl || '',
+      address: profile.address || '',
+      role: profile.role || 'traveller',
+      provider: profile.provider || 'email',
+      isActive: profile.isActive ?? true,
+      updatedAt: serverTimestamp(),
+      createdAt: serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+function normalizeTripList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => String(entry).trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value === 'string') {
+    return value
+      .split(/\n|,/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function parseTripItineraryText(value: string | undefined): Trip['itinerary'] {
+  if (!value || !value.trim()) {
+    return [];
+  }
+
+  const lines = value
+    .split(/\n|;/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.map((line, index) => {
+    const trimmed = line.replace(/^Day\s*\d+\s*[:\-]?\s*/i, '').trim();
+
+    if (trimmed.includes('|')) {
+      const segments = trimmed.split('|').map((part) => part.trim()).filter(Boolean);
+      return {
+        departure: segments[0] || `Day ${index + 1}`,
+        destination: segments[1] || 'Destination',
+        description: segments[2] || '',
+        imageUrl: segments[3] || '',
+      };
+    }
+
+    const match = line.match(/^\s*(?:Day\s*)?(\d+)\s*[:\-]?\s*(.*)$/i);
+    const dayLabel = match ? `Day ${match[1]}` : `Day ${index + 1}`;
+
+    return {
+      departure: dayLabel,
+      destination: 'Destination',
+      description: match ? match[2].trim() : line,
+      imageUrl: '',
+    };
+  });
+}
+
+function normalizeTripItinerary(value: unknown): Trip['itinerary'] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        return {
+          departure: 'Day 1',
+          destination: 'Destination',
+          description: item,
+          imageUrl: '',
+        };
+      }
+
+      if (item && typeof item === 'object') {
+        const raw = item as Record<string, unknown>;
+        return {
+          departure: String(raw.departure || 'Day 1'),
+          destination: String(raw.destination || 'Destination'),
+          description: String(raw.description || ''),
+          imageUrl: resolveTripImage(String(raw.imageUrl || '')),
+        };
+      }
+
+      return null;
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
+}
+
+export async function loadTripsFromFirestore(): Promise<Trip[]> {
+  if (!db) {
+    return [];
+  }
+
+  const snapshot = await getDocs(collection(db, 'trips'));
+
+  return snapshot.docs
+    .map((item) => {
+      const raw = item.data() as Partial<Trip>;
+      const imageCandidates = Array.isArray(raw.images)
+        ? raw.images
+        : raw.image
+          ? [raw.image]
+          : [];
+
+      const normalizedImages = imageCandidates.map((value) => resolveTripImage(String(value || ''))).filter(Boolean);
+
+      const reviews = Array.isArray(raw.reviews) ? raw.reviews : [];
+      const computedRating = getTripAverageRating({
+        rating: raw.rating,
+        reviews,
+      });
+      const legacyHidden = Boolean((raw as { hidden?: boolean }).hidden);
+
+      return {
+        id: item.id,
+        title: String(raw.title || 'Untitled trip'),
+        description: raw.description || '',
+        place: String(raw.place || raw.location || 'India'),
+        location: String(raw.location || raw.place || 'India'),
+        image: resolveTripImage(String(raw.image || normalizedImages[0] || '')),
+        images: normalizedImages,
+        price: raw.price ?? 0,
+        days: Number(raw.days ?? 0),
+        nights: Number(raw.nights ?? 0),
+        difficulty: raw.difficulty || raw.difficultyLevel || 'Moderate',
+        difficultyLevel: raw.difficultyLevel || raw.difficulty || 'Moderate',
+        rating: computedRating > 0 ? computedRating : Number(raw.rating ?? 0),
+        category: raw.category || 'Himalayas',
+        groupSize: Number(raw.groupSize ?? 1),
+        group: raw.group || `${Number(raw.groupSize ?? 1)} travellers`,
+        highlights: normalizeTripList(raw.highlights),
+        inclusion: normalizeTripList(raw.inclusion),
+        exclusion: normalizeTripList(raw.exclusion),
+        itinerary: normalizeTripItinerary(raw.itinerary),
+        reviews,
+        isHidden: Boolean(raw.isHidden ?? legacyHidden),
+        createdAt: raw.createdAt ? String(raw.createdAt) : undefined,
+        updatedAt: raw.updatedAt ? String(raw.updatedAt) : undefined,
+      } as Trip;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(String(a.updatedAt || a.createdAt || 0)).getTime();
+      const dateB = new Date(String(b.updatedAt || b.createdAt || 0)).getTime();
+      return dateB - dateA;
+    });
+}
+
+export async function saveTripReviewsToFirestore(
+  tripId: string,
+  reviews: TripReview[]
+): Promise<TripReview[]> {
+  const normalizedReviews = Array.isArray(reviews)
+    ? reviews.filter((review) => Boolean(review?.description?.trim()))
+    : [];
+
+  if (!db || !tripId) {
+    return normalizedReviews;
+  }
+
+  try {
+    const nextRating = getTripAverageRating({ reviews: normalizedReviews });
+
+    await setDoc(
+      doc(db, 'trips', tripId),
+      {
+        reviews: normalizedReviews,
+        rating: nextRating,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return normalizedReviews;
+  } catch (error) {
+    console.error('Failed to save trip reviews to Firestore:', error);
+    return normalizedReviews;
+  }
+}
+
+export async function saveTripVisibilityToFirestore(
+  tripId: string,
+  isHidden: boolean
+): Promise<boolean> {
+  if (!db || !tripId) {
+    return isHidden;
+  }
+
+  try {
+    await setDoc(
+      doc(db, 'trips', tripId),
+      {
+        isHidden,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return isHidden;
+  } catch (error) {
+    console.error('Failed to update trip visibility:', error);
+    return isHidden;
+  }
+}
+
+export async function saveTripDocument(
+  trip: Partial<Trip> & {
+    title: string;
+    place?: string;
+    price?: number | string;
+    days?: number;
+    difficultyLevel?: string;
+    groupSize?: number;
+  }
+): Promise<Trip> {
+  if (!db) {
+    throw new Error(
+      'Firebase Firestore is not available. Trip data cannot be saved right now.'
+    );
+  }
+
+  const tripId = trip.id || `trip-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const placeName = trip.place || trip.location || 'India';
+  const locationName = trip.location || trip.place || placeName;
+  const imageArray = (Array.isArray(trip.images)
+    ? trip.images
+    : trip.image
+      ? [trip.image]
+      : [])
+    .map((item) => resolveTripImage(String(item || '')))
+    .filter(Boolean)
+    .slice(0, 5);
+
+  const normalizedItinerary = Array.isArray(trip.itinerary)
+    ? normalizeTripItinerary(trip.itinerary)
+    : normalizeTripItinerary([]);
+
+  const reviews = Array.isArray(trip.reviews) ? trip.reviews : [];
+  const calculatedRating = getTripAverageRating({
+    rating: trip.rating,
+    reviews,
+  });
+
+  const payload: Trip & { createdAt: string; updatedAt: string } = {
+    id: tripId,
+    title: trip.title.trim() || 'Untitled trip',
+    description: trip.description || '',
+    place: placeName,
+    location: locationName,
+    images: imageArray,
+    image: resolveTripImage(String(trip.image || imageArray[0] || '')),
+    price: Number(trip.price ?? 0),
+    days: Number(trip.days ?? 0),
+    nights: Number(trip.nights ?? 0),
+    difficultyLevel: trip.difficultyLevel || trip.difficulty || 'Moderate',
+    difficulty: trip.difficultyLevel || trip.difficulty || 'Moderate',
+    rating: calculatedRating > 0 ? calculatedRating : Number(trip.rating ?? 0),
+    category: trip.category || 'Himalayas',
+    blurb: trip.blurb || trip.description || `${trip.title} in ${locationName}`,
+    group: trip.group || `${Number(trip.groupSize ?? 1)} travellers`,
+    groupSize: Number(trip.groupSize ?? 1),
+    dates: trip.dates || `${Number(trip.days ?? 3)} Days`,
+    highlights: normalizeTripList(trip.highlights).slice(0, 6),
+    itinerary: normalizedItinerary,
+    inclusion: normalizeTripList(trip.inclusion).slice(0, 6),
+    exclusion: normalizeTripList(trip.exclusion).slice(0, 10),
+    reviews,
+    isHidden: Boolean(trip.isHidden),
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await setDoc(
+    doc(db, 'trips', tripId),
+    { ...payload, createdAt: serverTimestamp(), updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+
+  return payload as Trip;
+}
+
+export async function createContactMessage(
+  input: {
+    userId?: string;
+    message: string;
+    status?: 'new' | 'read' | 'replied';
+  }
+): Promise<{ id: string; userId: string; message: string; status: string; createdAt: string; updatedAt: string }> {
+  if (!db) {
+    throw new Error(
+      'Firebase Firestore is not available. Your message could not be saved.'
+    );
+  }
+
+  const userId = input.userId || auth?.currentUser?.uid || 'guest';
+  const message = input.message.trim();
+
+  if (!message) {
+    throw new Error('Please write a message before sending it.');
+  }
+
+  const contactRef = doc(collection(db, 'contacts'));
+  const payload = {
+    id: contactRef.id,
+    userId,
+    message,
+    status: input.status || 'new',
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  await setDoc(contactRef, payload);
+
+  return {
+    ...payload,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as {
+    id: string;
+    userId: string;
+    message: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 export function persistCancelled(
@@ -315,8 +735,27 @@ export async function createBookingDocument(
     Array.isArray(
       normalized.travellers
     )
-      ? normalized.travellers
+      ? normalized.travellers.map(
+          (traveller) =>
+            normalizeTravellerForFirestore(
+              traveller as Partial<Traveller>
+            )
+        )
       : [];
+
+  const payment = {
+    paymentPersonName:
+      normalized.payment?.paymentPersonName ||
+      travellers[0]?.name ||
+      'Traveller',
+    upiIdOrBankAccountNumber:
+      normalized.payment?.upiIdOrBankAccountNumber || '',
+    contactNumber:
+      normalized.payment?.contactNumber ||
+      travellers[0]?.contactNumber ||
+      '',
+    timestamp: new Date().toISOString(),
+  };
 
   if (
     !tripId ||
@@ -356,6 +795,17 @@ export async function createBookingDocument(
     numberOfPersons:
       normalized.numberOfPersons,
     travellers,
+    payment,
+    tripStartDate:
+      normalized.tripStartDate ||
+      new Date().toISOString(),
+    tripEndDate:
+      normalized.tripEndDate ||
+      new Date(
+        Date.now() +
+          (Number(normalized.trip.days ?? 3) || 3) *
+            24 * 60 * 60 * 1000
+      ).toISOString(),
     bookingStatus: 'confirmed',
     status: 'Confirmed',
     totalAmount:

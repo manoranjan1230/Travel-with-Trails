@@ -13,7 +13,7 @@ import { BookingRoute } from '@/pages/BookingFlow/BookingRoute';
 import { ItineraryPage } from '@/pages/Itinerary/ItineraryPage';
 import { SupportPage } from '@/pages/Support/SupportPage';
 import { ProfilePage } from '@/pages/Profile/ProfilePage';
-import { AdminPage } from '@/pages/Admin/AdminPage';
+import { AdminPage } from '@/admin/AdminPage';
 import { readCurrentUser } from '@/services/auth';
 import { auth } from '@/services/firebase';
 import {
@@ -113,6 +113,11 @@ export function Router() {
             String(trip.price ?? 0).replace(/[^\d.-]/g, '')
           ) || 0;
 
+    const tripStartDate = new Date().toISOString();
+    const tripEndDate = new Date(
+      Date.now() + ((Number(trip.days ?? 3) || 3) * 24 * 60 * 60 * 1000)
+    ).toISOString();
+
     const booking: Booking = {
       id: makeBookingId(trip.id),
       trip: { ...trip },
@@ -123,6 +128,14 @@ export function Router() {
       tripId: trip.id,
       bookingStatus: 'confirmed',
       status: 'Confirmed',
+      tripStartDate,
+      tripEndDate,
+      payment: {
+        paymentPersonName: user.displayName || 'Traveller',
+        upiIdOrBankAccountNumber: '',
+        contactNumber: travellers[0]?.mobile || user.phoneNumber || '',
+        timestamp: new Date().toISOString(),
+      },
       totalAmount: tripPrice * travellers.length,
       timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),

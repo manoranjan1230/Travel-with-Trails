@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { readCurrentUser, signOut } from '@/services/auth';
+import { saveUserProfileToFirestore } from '@/services/storage';
 
 const defaultImage =
   'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=900&q=80';
@@ -102,7 +103,7 @@ export function ProfilePage() {
     }));
   };
 
-  const saveProfile = (event: FormEvent) => {
+  const saveProfile = async (event: FormEvent) => {
     event.preventDefault();
 
     const nextProfile: ProfileData = {
@@ -116,6 +117,27 @@ export function ProfilePage() {
       emergencyNumber:
         profile.emergencyNumber.trim() || 'Not added',
     };
+
+    const currentUser = readCurrentUser();
+
+    if (currentUser?.id) {
+      await saveUserProfileToFirestore({
+        id: currentUser.id,
+        name: nextProfile.name,
+        email: nextProfile.email,
+        mobile: nextProfile.mobile === 'Not added' ? '' : nextProfile.mobile,
+        emergencyNumber:
+          nextProfile.emergencyNumber === 'Not added'
+            ? ''
+            : nextProfile.emergencyNumber,
+        profileImageUrl: nextProfile.profileImageUrl,
+        address:
+          nextProfile.address === 'No address added yet'
+            ? ''
+            : nextProfile.address,
+        role: currentUser.role || 'traveller',
+      });
+    }
 
     localStorage.setItem(
       'travel-with-trails-current-user',

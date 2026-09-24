@@ -71,7 +71,26 @@ export type Trip = {
   inclusion?: string[];
   exclusion?: string[];
   reviews?: TripReview[];
+  isHidden?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
+
+export function getTripAverageRating(trip?: Partial<Trip> | null): number {
+  const reviews = Array.isArray(trip?.reviews) ? trip.reviews : [];
+
+  if (reviews.length) {
+    const total = reviews.reduce(
+      (sum, review) => sum + Number(review?.rating || 0),
+      0
+    );
+
+    return Number((total / reviews.length).toFixed(1));
+  }
+
+  const numericRating = Number(trip?.rating ?? 0);
+  return Number.isFinite(numericRating) && numericRating > 0 ? numericRating : 0;
+}
 
 export type Booking = {
   id: string;
